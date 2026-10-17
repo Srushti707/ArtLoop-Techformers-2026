@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react';
-import { ArrowUpRight, Sparkles, LogOut } from 'lucide-react';
+import { ArrowUpRight, LogOut, LogIn } from 'lucide-react';
 import ArtLoopLogo from './ArtLoopLogo';
-import { useCreatorSession } from '../useCreator';
+import { useAuth } from '../useAuth';
 
 export type Page = 'home' | 'discover' | 'artist' | 'commission' | 'dashboard' | 'join' | 'upload' | 'enquiry';
 
 type NavProps = {
   current: Page;
   onNavigate: (page: Page, artistSlug?: string) => void;
+  onOpenAuth: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
 };
 
-export default function Nav({ current, onNavigate }: NavProps) {
+export default function Nav({ current, onNavigate, onOpenAuth }: NavProps) {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { creator, signOut } = useCreatorSession();
+  const { role, buyer, creator, signOut } = useAuth();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -71,9 +72,23 @@ export default function Nav({ current, onNavigate }: NavProps) {
           </nav>
 
           <div className="hidden md:flex items-center gap-4">
-            {creator ? (
+            {role === 'buyer' && buyer && (
               <>
-                <span className="text-sm text-muted">Hi, {creator.name.split(' ')[0]}</span>
+                <span className="text-sm text-ink-soft">Hi, {buyer.name.split(' ')[0]}</span>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-1 text-sm text-muted hover:text-coral transition-colors"
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
+              </>
+            )}
+
+            {role === 'creator' && creator && (
+              <>
+                <span className="text-sm text-ink-soft">Hi, {creator.name.split(' ')[0]}</span>
                 <button
                   onClick={() => handleNav('upload')}
                   className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-coral transition-colors"
@@ -85,18 +100,20 @@ export default function Nav({ current, onNavigate }: NavProps) {
                   onClick={handleSignOut}
                   className="flex items-center gap-1 text-sm text-muted hover:text-coral transition-colors"
                   aria-label="Sign out"
+                  title="Sign out"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </>
-            ) : (
+            )}
+
+            {!role && (
               <button
-                onClick={() => handleNav('join')}
-                className="flex items-center gap-1.5 text-sm font-semibold text-ink hover:text-coral transition-colors group"
+                onClick={() => onOpenAuth('buyer', 'signin')}
+                className="flex items-center gap-1.5 text-sm font-medium text-ink hover:text-coral transition-colors"
               >
-                <Sparkles className="w-4 h-4 text-coral" />
-                Become a Creator
-                <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                <LogIn className="w-4 h-4" />
+                Log in
               </button>
             )}
           </div>
@@ -120,41 +137,59 @@ export default function Nav({ current, onNavigate }: NavProps) {
           menuOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
-        <div className="flex flex-col items-center justify-center h-full gap-8">
+        <div className="flex flex-col items-center justify-center h-full gap-6">
           {links.map((link) => (
             <button
               key={link.label}
               onClick={() => handleNav(link.page)}
-              className="font-display text-4xl font-bold text-ink hover:text-coral transition-colors"
+              className="font-display text-3xl font-bold text-ink hover:text-coral transition-colors"
             >
               {link.label}
             </button>
           ))}
-          {creator ? (
-            <>
+
+          {role === 'buyer' && buyer && (
+            <div className="flex flex-col items-center gap-3 mt-4">
+              <span className="text-sm text-ink-soft">Signed in as {buyer.name}</span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-sm text-coral"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out
+              </button>
+            </div>
+          )}
+
+          {role === 'creator' && creator && (
+            <div className="flex flex-col items-center gap-3 mt-4">
               <button
                 onClick={() => handleNav('upload')}
-                className="btn-coral mt-4"
+                className="btn-coral"
               >
                 Upload artwork
                 <ArrowUpRight className="w-4 h-4" />
               </button>
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 text-sm text-muted"
+                className="flex items-center gap-1.5 text-sm text-coral"
               >
                 <LogOut className="w-4 h-4" />
                 Sign out ({creator.name.split(' ')[0]})
               </button>
-            </>
-          ) : (
-            <button
-              onClick={() => handleNav('join')}
-              className="btn-coral mt-4"
-            >
-              <Sparkles className="w-4 h-4" />
-              Become a Creator
-            </button>
+            </div>
+          )}
+
+          {!role && (
+            <div className="flex flex-col items-center gap-3 mt-4">
+              <button
+                onClick={() => { setMenuOpen(false); onOpenAuth('buyer', 'signin'); }}
+                className="btn-coral w-48 text-center flex items-center justify-center gap-2"
+              >
+                <LogIn className="w-4 h-4" />
+                Log in
+              </button>
+            </div>
           )}
         </div>
       </div>

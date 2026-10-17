@@ -36,7 +36,7 @@ export function useMarketplace() {
   const { artworks: creatorArtworks, addArtwork, updateArtwork, deleteArtwork } = useCreatorArtworks();
 
   // Resolve IndexedDB image URLs for published creator artworks
-  const [imageUrls, setImageUrls] = useImageUrls(creatorArtworks);
+  const imageUrls = useImageUrls(creatorArtworks);
 
   const publishedCreatorArtworks = useMemo(
     () => creatorArtworks.filter((a) => a.status === 'published'),
@@ -101,5 +101,5 @@ function useImageUrls(creatorArtworks: CreatorArtwork[]) {
     return () => { cancelled = true; };
   }, [creatorArtworks]);
 
-  return [imageUrls, setImageUrls] as const;
+  return imageUrls;
 }

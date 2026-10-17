@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { X, Check, AlertCircle, Mail } from 'lucide-react';
+import { X, Check, AlertCircle, Mail, ArrowUpRight } from 'lucide-react';
 import type { Artwork, Artist } from '../types';
+import type { Page } from './Nav';
 import { useEnquiries } from '../useCreator';
+import { useAuth } from '../useAuth';
 import { inr } from '../format';
 
 type EnquiryModalProps = {
   artwork: Artwork;
   artist: Artist | undefined;
   onClose: () => void;
+  onNavigate?: (page: Page) => void;
 };
 
 type FormData = {
@@ -19,15 +22,14 @@ type FormData = {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
-const initialData: FormData = {
-  buyerName: '',
-  buyerEmail: '',
-  message: '',
-  offerPrice: '',
-};
-
-export default function EnquiryModal({ artwork, artist, onClose }: EnquiryModalProps) {
-  const [formData, setFormData] = useState<FormData>(initialData);
+export default function EnquiryModal({ artwork, artist, onClose, onNavigate }: EnquiryModalProps) {
+  const { buyer } = useAuth();
+  const [formData, setFormData] = useState<FormData>(() => ({
+    buyerName: buyer?.name || '',
+    buyerEmail: buyer?.email || '',
+    message: '',
+    offerPrice: '',
+  }));
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const { addEnquiry } = useEnquiries();
@@ -82,6 +84,7 @@ export default function EnquiryModal({ artwork, artist, onClose }: EnquiryModalP
       artworkTitle: artwork.title,
       artistId: artist.id,
       artistName: artist.name,
+      buyerId: buyer?.id,
       buyerName: formData.buyerName.trim(),
       buyerEmail: formData.buyerEmail.trim(),
       message: formData.message.trim(),
@@ -112,7 +115,20 @@ export default function EnquiryModal({ artwork, artist, onClose }: EnquiryModalP
             <p className="text-ink-soft mb-8">
               {artist.name.split(' ')[0]} will see your message in their dashboard and respond via email.
             </p>
-            <button onClick={onClose} className="btn-coral">Close</button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => {
+                  onClose();
+                  if (onNavigate) onNavigate('dashboard');
+                }}
+                className="btn-coral flex items-center justify-center gap-1.5"
+              >
+                Track in Buyer Dashboard <ArrowUpRight className="w-4 h-4" />
+              </button>
+              <button onClick={onClose} className="btn-outline">
+                Close
+              </button>
+            </div>
           </div>
         ) : (
           <>

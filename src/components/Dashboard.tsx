@@ -1,19 +1,24 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Trash2, ArrowUpRight, Inbox, Clock, CheckCircle2, XCircle, Loader2,
-  Plus, Edit3, ExternalLink, Mail, Image as ImageIcon, Sparkles, LogOut,
-  LayoutGrid, User, Palette, MessageSquare,
+  Plus, Edit3, Mail, Image as ImageIcon, LogOut,
+  LayoutGrid, User, Palette, MessageSquare, Upload,
 } from 'lucide-react';
 import type { Page } from './Nav';
-import type { Commission, CommissionStatus, EnquiryStatus, PurchaseEnquiry, CreatorArtwork } from '../types';
+import type { Commission, CommissionStatus, EnquiryStatus, Artwork } from '../types';
 import { useCommissions } from '../useCommissions';
-import { useEnquiries, useCreatorSession, useCreatorArtworks, useCreatorProfiles } from '../useCreator';
+import { useEnquiries, useCreatorArtworks, useCreatorProfiles } from '../useCreator';
+import { useAuth } from '../useAuth';
+import BuyerDashboard from './BuyerDashboard';
 import { getImageURL } from '../imageStore';
+import { fileToAvatarDataUrl } from '../avatarUtils';
 import { inr } from '../format';
 
 type DashboardProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
   onEditArtwork: (id: string) => void;
+  onEnquireArtwork?: (artwork: Artwork) => void;
+  onOpenAuth?: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
 };
 
 type Tab = 'overview' | 'profile' | 'artworks' | 'requests';
@@ -40,9 +45,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps) {
-  const { creator, signOut } = useCreatorSession();
-  const { profiles, updateProfile } = useCreatorProfiles();
+export default function Dashboard({
+  onNavigate,
+  onEditArtwork,
+  onEnquireArtwork,
+  onOpenAuth,
+}: DashboardProps) {
+  const { role, buyer, creator, signOut } = useAuth();
+  const { updateProfile } = useCreatorProfiles();
   const { commissions, updateStatus, deleteCommission } = useCommissions();
   const { enquiries, updateEnquiryStatus, deleteEnquiry } = useEnquiries();
   const { artworks: creatorArtworks, deleteArtwork } = useCreatorArtworks();
@@ -58,6 +68,7 @@ export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps)
 
   // Resolve image URLs for the creator's own artworks
   useEffect(() => {
+    if (!creator) return;
     let cancelled = false;
     Promise.all(
       creatorArtworks.map(async (cw) => {
@@ -73,7 +84,7 @@ export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps)
       setArtworkImageUrls(map);
     });
     return () => { cancelled = true; };
-  }, [creatorArtworks]);
+  }, [creatorArtworks, creator]);
 
   // Filter data for the signed-in creator
   const myCommissions = useMemo(
@@ -102,56 +113,98 @@ export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps)
     return { totalReqs, pending, active, completed, publishedCount, draftCount, totalValue };
   }, [myCommissions, myEnquiries, myArtworks]);
 
-  const filteredCommissions = useMemo(() => {
-    if (filterStatus === 'all') return myCommissions;
-    return myCommissions.filter((c) => c.status === filterStatus);
-  }, [myCommissions, filterStatus]);
+  // 1. If logged-in user is a Buyer, render Buyer Dashboard
+  if (role === 'buyer' && buyer) {
+    return (
+      <BuyerDashboard
+        onNavigate={onNavigate}
+        onEnquireArtwork={onEnquireArtwork || (() => onNavigate('discover'))}
+      />
+    );
+  }
 
-  // If not signed in as creator, show a prompt
+  // 2. If nobody is logged in, show clean prompt with two choices
   if (!creator) {
     return (
       <div className="pt-28 md:pt-36 min-h-screen">
         <div className="max-w-[1600px] mx-auto px-6 md:px-12">
           <div className="mb-12 md:mb-16">
-            <span className="editorial-label mb-4 block">Creator Dashboard</span>
+            <span className="editorial-label mb-4 block">Dashboard Portal</span>
             <h1 className="font-display font-bold text-ink text-display-2 mb-4">
-              Manage your commissions.
+              Sign in to view your dashboard.
             </h1>
             <p className="text-lg text-ink-soft max-w-2xl">
-              Review incoming requests, update their status, and keep your workflow organized. All data persists locally in your browser.
+              Choose your role below to access your commission tracking, artwork requests, or portfolio management.
             </p>
           </div>
 
-          {/* Commission management for non-creators (original behavior) */}
-          <CommissionList
-            commissions={commissions}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
-            expandedId={expandedId}
-            setExpandedId={setExpandedId}
-            updateStatus={updateStatus}
-            deleteCommission={deleteCommission}
-            onNavigate={onNavigate}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
+            {/* Buyer Choice */}
+            <div className="border border-border p-8 md:p-10 bg-canvas hover:border-coral transition-colors flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-full bg-coral/10 text-coral flex items-center justify-center mb-6">
+                  <User className="w-6 h-6" />
+                </div>
+                <span className="editorial-label text-coral block mb-2">Art Collector</span>
+                <h2 className="font-display text-2xl font-bold text-ink mb-3">
+                  Buyer Dashboard
+                </h2>
+                <p className="text-ink-soft text-sm leading-relaxed mb-6">
+                  Track your custom commissions, follow up on purchase enquiries, and review your saved artwork wishlist.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => onOpenAuth ? onOpenAuth('buyer', 'signin') : onNavigate('discover')}
+                  className="btn-coral w-full justify-center"
+                >
+                  Continue as Buyer
+                </button>
+                <button
+                  onClick={() => onOpenAuth ? onOpenAuth('buyer', 'signup') : onNavigate('discover')}
+                  className="text-xs text-muted hover:text-coral text-center py-1 font-medium transition-colors"
+                >
+                  New collector? Create account →
+                </button>
+              </div>
+            </div>
 
-          <div className="mt-20 border-t border-border pt-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <p className="text-sm text-muted">
-              Requests are saved in your browser's local storage and persist across page refreshes.
-            </p>
-            <button
-              onClick={() => onNavigate('join')}
-              className="flex items-center gap-2 text-sm font-semibold text-coral hover:text-coral-dim transition-colors"
-            >
-              <Sparkles className="w-4 h-4" />
-              Become a creator
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
+            {/* Creator Choice */}
+            <div className="border border-border p-8 md:p-10 bg-canvas hover:border-ink transition-colors flex flex-col justify-between">
+              <div>
+                <div className="w-12 h-12 rounded-full bg-canvas-dark text-ink flex items-center justify-center mb-6">
+                  <Palette className="w-6 h-6" />
+                </div>
+                <span className="editorial-label text-muted block mb-2">Student Artist</span>
+                <h2 className="font-display text-2xl font-bold text-ink mb-3">
+                  Student Creator Dashboard
+                </h2>
+                <p className="text-ink-soft text-sm leading-relaxed mb-6">
+                  Publish original artwork to Discover, manage client briefs, update commission statuses, and edit your profile.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => onOpenAuth ? onOpenAuth('creator', 'signin') : onNavigate('home')}
+                  className="btn-outline w-full justify-center"
+                >
+                  Continue as Student Creator
+                </button>
+                <button
+                  onClick={() => onOpenAuth ? onOpenAuth('creator', 'signup') : onNavigate('home')}
+                  className="text-xs text-muted hover:text-coral text-center py-1 font-medium transition-colors"
+                >
+                  New artist? Sign up as Creator →
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
+  // 3. If logged-in user is a Student Creator, render existing Creator Dashboard
   const tabs: { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
     { id: 'profile', label: 'My Profile', icon: User },
@@ -170,7 +223,7 @@ export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps)
         {/* Header */}
         <div className="mb-12 md:mb-16 flex flex-col md:flex-row items-start md:items-end justify-between gap-6">
           <div>
-            <span className="editorial-label mb-4 block">Creator Dashboard</span>
+            <span className="editorial-label mb-4 block">Student Creator Dashboard</span>
             <h1 className="font-display font-bold text-ink text-display-2 mb-4">
               Welcome back, {creator.name.split(' ')[0]}.
             </h1>
@@ -302,7 +355,7 @@ export default function Dashboard({ onNavigate, onEditArtwork }: DashboardProps)
 
         {/* ─── Profile Tab ─── */}
         {activeTab === 'profile' && (
-          <ProfileEditor creator={creator} profiles={profiles} updateProfile={updateProfile} />
+          <ProfileEditor creator={creator} updateProfile={updateProfile} />
         )}
 
         {/* ─── Artworks Tab ─── */}
@@ -663,11 +716,9 @@ function CommissionList({
 
 function ProfileEditor({
   creator,
-  profiles,
   updateProfile,
 }: {
   creator: import('../types').CreatorProfile;
-  profiles: import('../types').CreatorProfile[];
   updateProfile: (id: string, updates: Partial<import('../types').CreatorProfile>) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -680,6 +731,19 @@ function ProfileEditor({
     startingPrice: String(creator.startingPrice),
     avatar: creator.avatar,
   });
+
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await fileToAvatarDataUrl(file);
+      setForm((p) => ({ ...p, avatar: dataUrl }));
+    } catch {
+      // ignore
+    }
+  };
 
   const handleSave = () => {
     updateProfile(creator.id, {
@@ -788,12 +852,38 @@ function ProfileEditor({
             </div>
           </div>
           <div>
-            <label className="editorial-label mb-2 block">Avatar URL</label>
+            <label className="editorial-label mb-2 block">Profile Image</label>
+            <div className="flex items-center gap-4 mb-3">
+              <div className="w-14 h-14 rounded-full overflow-hidden border border-border bg-canvas shrink-0">
+                <img
+                  src={form.avatar || creator.avatar}
+                  alt={creator.name}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => avatarFileRef.current?.click()}
+                className="btn-outline text-xs py-2 px-3 flex items-center gap-1.5"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                Upload new photo
+              </button>
+              <input
+                ref={avatarFileRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
+            </div>
+            <label className="text-xs text-muted block mb-1">Or image URL:</label>
             <input
               type="url"
-              value={form.avatar}
+              value={form.avatar.startsWith('data:') ? '' : form.avatar}
               onChange={(e) => setForm((p) => ({ ...p, avatar: e.target.value }))}
-              className="input-field"
+              className="input-field text-sm"
+              placeholder="https://..."
             />
           </div>
           <div className="flex gap-4 pt-4">

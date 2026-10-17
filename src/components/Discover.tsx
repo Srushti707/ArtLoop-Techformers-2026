@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Search, X, ArrowUpRight, Mail } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Search, X, ArrowUpRight, Mail, Heart } from 'lucide-react';
 import ArtworkImage from './ArtworkImage';
 import type { Page } from './Nav';
 import type { Artwork, Artist } from '../types';
 import { categories, budgetRanges } from '../data';
 import { useMarketplace } from '../useMarketplace';
+import { useAuth } from '../useAuth';
 import { inr } from '../format';
 
 type DiscoverProps = {
@@ -14,6 +15,7 @@ type DiscoverProps = {
 
 export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
   const { allArtworks, allArtists } = useMarketplace();
+  const { toggleSaveArtwork, isArtworkSaved } = useAuth();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<typeof categories[number]>('All');
   const [activeBudget, setActiveBudget] = useState(0);
@@ -26,8 +28,10 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
   const getArtistForArtwork = (artwork: Artwork): Artist | undefined =>
     allArtists.find((a) => a.id === artwork.artistId);
 
-  const getArtistName = (artistId: string): string =>
-    allArtists.find((a) => a.id === artistId)?.name ?? 'Unknown Artist';
+  const getArtistName = useCallback(
+    (artistId: string): string => allArtists.find((a) => a.id === artistId)?.name ?? 'Unknown Artist',
+    [allArtists]
+  );
 
   const filteredArtworks = useMemo(() => {
     const budget = budgetRanges[activeBudget];
@@ -41,7 +45,7 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
       const matchesBudget = art.price >= budget.min && art.price <= budget.max;
       return matchesSearch && matchesCategory && matchesBudget;
     });
-  }, [allArtworks, allArtists, search, activeCategory, activeBudget]);
+  }, [allArtworks, getArtistName, search, activeCategory, activeBudget]);
 
   const visibleArtworks = filteredArtworks.slice(0, visibleCount);
   const hasMore = visibleCount < filteredArtworks.length;
@@ -168,6 +172,22 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
                     <div className="absolute top-3 left-3 bg-canvas/90 px-3 py-1 text-xs font-medium text-ink">
                       {art.category}
                     </div>
+                    {/* Save to Wishlist button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSaveArtwork(art.id);
+                      }}
+                      className="absolute top-3 right-3 p-2 bg-canvas/90 hover:bg-canvas rounded-full text-ink transition-all z-10 shadow-sm"
+                      title={isArtworkSaved(art.id) ? 'Saved in Wishlist' : 'Save to Wishlist'}
+                      aria-label="Save to Wishlist"
+                    >
+                      <Heart
+                        className={`w-4 h-4 transition-colors ${
+                          isArtworkSaved(art.id) ? 'fill-coral text-coral' : 'text-ink hover:text-coral'
+                        }`}
+                      />
+                    </button>
                     {/* Enquire button — appears on hover */}
                     <button
                       onClick={() => onEnquire(art)}

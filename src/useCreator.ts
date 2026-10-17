@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CreatorProfile, CreatorArtwork, PurchaseEnquiry, EnquiryStatus } from './types';
 
-const SESSION_KEY = 'artloop_creator_session';
 const PROFILES_KEY = 'artloop_creator_profiles';
 const ARTWORKS_KEY = 'artloop_creator_artworks';
 const ENQUIRIES_KEY = 'artloop_purchase_enquiries';
@@ -33,29 +32,17 @@ function genId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+import { useAuth } from './useAuth';
+
 // ─── Session ──────────────────────────────────────────────
 
 export function useCreatorSession() {
-  const [creator, setCreator] = useState<CreatorProfile | null>(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      return raw ? JSON.parse(raw) as CreatorProfile : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const signIn = useCallback((profile: CreatorProfile) => {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
-    setCreator(profile);
-  }, []);
-
-  const signOut = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
-    setCreator(null);
-  }, []);
-
-  return { creator, signIn, signOut };
+  const { creator, loginCreator, signOut } = useAuth();
+  return {
+    creator,
+    signIn: loginCreator,
+    signOut,
+  };
 }
 
 // ─── Profiles ─────────────────────────────────────────────

@@ -1,3 +1,3 @@
-# Techformers-hackathon-Artloop
+# ArtLoop
 
-[![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-lnhuypyq)
+An independent marketplace where emerging student artists find their first audience.

@@ -9,6 +9,7 @@ import { inr } from '../format';
 
 type HomeProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
+  onOpenAuth?: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
 };
 
 type HeroCard = {
@@ -25,7 +26,7 @@ const heroCards: HeroCard[] = [
   { artworkIndex: 12, rotate: 4, depth: 4, position: 'hero-card-front' },
 ];
 
-export default function Home({ onNavigate }: HomeProps) {
+export default function Home({ onNavigate, onOpenAuth }: HomeProps) {
   const [mounted, setMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
@@ -91,7 +92,10 @@ export default function Home({ onNavigate }: HomeProps) {
                   Explore the artists
                   <ArrowUpRight className="w-4 h-4" />
                 </button>
-                <button onClick={() => onNavigate('join')} className="btn-outline">
+                <button
+                  onClick={() => (onOpenAuth ? onOpenAuth('creator', 'signup') : onNavigate('discover'))}
+                  className="btn-outline"
+                >
                   Become a Creator
                 </button>
               </div>

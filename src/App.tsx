@@ -6,21 +6,28 @@ import Discover from './components/Discover';
 import ArtistProfile from './components/ArtistProfile';
 import CommissionForm from './components/CommissionForm';
 import Dashboard from './components/Dashboard';
-import CreatorOnboarding from './components/CreatorOnboarding';
 import ArtworkUpload from './components/ArtworkUpload';
 import EnquiryModal from './components/EnquiryModal';
+import AuthModal from './components/AuthModal';
 import type { Artwork, Artist } from './types';
 import { useMarketplace } from './useMarketplace';
 import { useState as useReactState } from 'react';
 
-function parseHash(): { page: Page; artistSlug?: string; editId?: string } {
+function parseHash(): {
+  page: Page;
+  artistSlug?: string;
+  editId?: string;
+  isLogin?: boolean;
+  openCreatorSignup?: boolean;
+} {
   const hash = window.location.hash.slice(1);
   const parts = hash.split('/').filter(Boolean);
 
   if (parts.length === 0) return { page: 'home' };
   if (parts[0] === 'discover') return { page: 'discover' };
   if (parts[0] === 'dashboard') return { page: 'dashboard' };
-  if (parts[0] === 'join') return { page: 'join' };
+  if (parts[0] === 'login') return { page: 'dashboard', isLogin: true };
+  if (parts[0] === 'join') return { page: 'dashboard', openCreatorSignup: true };
   if (parts[0] === 'upload') {
     return { page: 'upload', editId: parts[1] };
   }
@@ -41,12 +48,30 @@ function buildHash(page: Page, artistSlug?: string, editId?: string): string {
 export default function App() {
   const [state, setState] = useState(() => parseHash());
   const [enquiryTarget, setEnquiryTarget] = useReactState<{ artwork: Artwork; artist: Artist | undefined } | null>(null);
+  const [authModal, setAuthModal] = useState<{
+    open: boolean;
+    initialRole: 'buyer' | 'creator';
+    initialMode: 'signin' | 'signup';
+  }>({
+    open: false,
+    initialRole: 'buyer',
+    initialMode: 'signin',
+  });
   const marketplace = useMarketplace();
 
   useEffect(() => {
-    const onHashChange = () => setState(parseHash());
-    window.addEventListener('hashchange', onHashChange);
-    return () => window.removeEventListener('hashchange', onHashChange);
+    const handleHash = () => {
+      const parsed = parseHash();
+      setState(parsed);
+      if (parsed.isLogin) {
+        setAuthModal({ open: true, initialRole: 'buyer', initialMode: 'signin' });
+      } else if (parsed.openCreatorSignup) {
+        setAuthModal({ open: true, initialRole: 'creator', initialMode: 'signup' });
+      }
+    };
+    handleHash();
+    window.addEventListener('hashchange', handleHash);
+    return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
   const navigate = useCallback((page: Page, artistSlug?: string) => {
@@ -64,15 +89,22 @@ export default function App() {
   const openEnquiry = useCallback((artwork: Artwork) => {
     const artist = marketplace.allArtists.find((a) => a.id === artwork.artistId);
     setEnquiryTarget({ artwork, artist });
-  }, [marketplace.allArtists]);
+  }, [marketplace.allArtists, setEnquiryTarget]);
+
+  const openAuth = useCallback(
+    (initialRole: 'buyer' | 'creator' = 'buyer', initialMode: 'signin' | 'signup' = 'signin') => {
+      setAuthModal({ open: true, initialRole, initialMode });
+    },
+    []
+  );
 
   return (
     <>
       <div className="grain-overlay" />
-      <Nav current={state.page} onNavigate={navigate} />
+      <Nav current={state.page} onNavigate={navigate} onOpenAuth={openAuth} />
 
       <main>
-        {state.page === 'home' && <Home onNavigate={navigate} />}
+        {state.page === 'home' && <Home onNavigate={navigate} onOpenAuth={openAuth} />}
         {state.page === 'discover' && <Discover onNavigate={navigate} onEnquire={openEnquiry} />}
         {state.page === 'artist' && state.artistSlug && (
           <ArtistProfile artistSlug={state.artistSlug} onNavigate={navigate} />
@@ -80,9 +112,17 @@ export default function App() {
         {state.page === 'commission' && (
           <CommissionForm artistSlug={state.artistSlug} onNavigate={navigate} />
         )}
-        {state.page === 'dashboard' && <Dashboard onNavigate={navigate} onEditArtwork={navigateEdit} />}
-        {state.page === 'join' && <CreatorOnboarding onNavigate={navigate} />}
-        {state.page === 'upload' && <ArtworkUpload onNavigate={navigate} editId={state.editId} />}
+        {state.page === 'dashboard' && (
+          <Dashboard
+            onNavigate={navigate}
+            onEditArtwork={navigateEdit}
+            onEnquireArtwork={openEnquiry}
+            onOpenAuth={openAuth}
+          />
+        )}
+        {state.page === 'upload' && (
+          <ArtworkUpload onNavigate={navigate} onOpenAuth={openAuth} editId={state.editId} />
+        )}
       </main>
 
       <Footer onNavigate={navigate} />
@@ -92,8 +132,17 @@ export default function App() {
           artwork={enquiryTarget.artwork}
           artist={enquiryTarget.artist}
           onClose={() => setEnquiryTarget(null)}
+          onNavigate={navigate}
         />
       )}
+
+      <AuthModal
+        isOpen={authModal.open}
+        initialRole={authModal.initialRole}
+        initialMode={authModal.initialMode}
+        onClose={() => setAuthModal((p) => ({ ...p, open: false }))}
+        onNavigate={navigate}
+      />
     </>
   );
 }

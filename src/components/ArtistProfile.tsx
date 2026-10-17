@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, MapPin, GraduationCap, IndianRupee, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, MapPin, GraduationCap, IndianRupee, ArrowUpRight, Heart } from 'lucide-react';
 import ArtworkImage from './ArtworkImage';
 import type { Page } from './Nav';
 import { getArtist, getArtworksByArtist } from '../data';
+import { useAuth } from '../useAuth';
 import { inr } from '../format';
 
 type ArtistProfileProps = {
@@ -11,6 +12,7 @@ type ArtistProfileProps = {
 };
 
 export default function ArtistProfile({ artistSlug, onNavigate }: ArtistProfileProps) {
+  const { toggleSaveArtwork, isArtworkSaved } = useAuth();
   const [visibleBio, setVisibleBio] = useState(false);
   const artist = getArtist(artistSlug);
 
@@ -139,6 +141,21 @@ export default function ArtistProfile({ artistSlug, onNavigate }: ArtistProfileP
                     className="w-full h-full"
                     imgClassName="group-hover:scale-105"
                   />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSaveArtwork(work.id);
+                    }}
+                    className="absolute top-3 right-3 p-2 bg-canvas/90 hover:bg-canvas rounded-full text-ink transition-all z-10 shadow-sm"
+                    title={isArtworkSaved(work.id) ? 'Saved in Wishlist' : 'Save to Wishlist'}
+                    aria-label="Save to Wishlist"
+                  >
+                    <Heart
+                      className={`w-4 h-4 transition-colors ${
+                        isArtworkSaved(work.id) ? 'fill-coral text-coral' : 'text-ink hover:text-coral'
+                      }`}
+                    />
+                  </button>
                 </div>
                 <div className="mt-4 flex items-start justify-between gap-4">
                   <div>

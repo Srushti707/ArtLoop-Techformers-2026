@@ -5,6 +5,7 @@ import type { Page } from './Nav';
 import type { Commission } from '../types';
 import { getArtist } from '../data';
 import { useCommissions } from '../useCommissions';
+import { useAuth } from '../useAuth';
 import { inr, formatINR } from '../format';
 import { validateBudget } from '../validation';
 
@@ -23,16 +24,15 @@ type FormData = {
 
 type FormErrors = Partial<Record<keyof FormData, string>>;
 
-const initialData: FormData = {
-  buyerName: '',
-  buyerEmail: '',
-  projectDescription: '',
-  budget: '',
-  deadline: '',
-};
-
 export default function CommissionForm({ artistSlug, onNavigate }: CommissionFormProps) {
-  const [formData, setFormData] = useState<FormData>(initialData);
+  const { buyer } = useAuth();
+  const [formData, setFormData] = useState<FormData>(() => ({
+    buyerName: buyer?.name || '',
+    buyerEmail: buyer?.email || '',
+    projectDescription: '',
+    budget: '',
+    deadline: '',
+  }));
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitted, setSubmitted] = useState(false);
   const [savedCommission, setSavedCommission] = useState<Commission | null>(null);
@@ -42,11 +42,17 @@ export default function CommissionForm({ artistSlug, onNavigate }: CommissionFor
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    setFormData(initialData);
+    setFormData({
+      buyerName: buyer?.name || '',
+      buyerEmail: buyer?.email || '',
+      projectDescription: '',
+      budget: '',
+      deadline: '',
+    });
     setErrors({});
     setSubmitted(false);
     setSavedCommission(null);
-  }, [artistSlug]);
+  }, [artistSlug, buyer]);
 
   if (!artist) {
     return (
@@ -110,6 +116,7 @@ export default function CommissionForm({ artistSlug, onNavigate }: CommissionFor
     const commission = addCommission({
       artistId: artist.id,
       artistName: artist.name,
+      buyerId: buyer?.id,
       buyerName: formData.buyerName.trim(),
       buyerEmail: formData.buyerEmail.trim(),
       projectDescription: formData.projectDescription.trim(),
@@ -149,7 +156,7 @@ export default function CommissionForm({ artistSlug, onNavigate }: CommissionFor
               Your request is in.
             </h1>
             <p className="text-lg text-ink-soft leading-relaxed mb-12">
-              {artist.name.split(' ')[0]} will review your project brief and respond from their dashboard. You can track the status in the creator dashboard.
+              {artist.name.split(' ')[0]} will review your project brief and respond. You can track status, updates, and deliverables in your Buyer Dashboard.
             </p>
 
             {/* Summary */}
@@ -173,12 +180,18 @@ export default function CommissionForm({ artistSlug, onNavigate }: CommissionFor
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button onClick={() => onNavigate('dashboard')} className="btn-coral">
-                View in dashboard
+                Track in Buyer Dashboard
               </button>
               <button
                 onClick={() => {
                   setSubmitted(false);
-                  setFormData(initialData);
+                  setFormData({
+                    buyerName: buyer?.name || '',
+                    buyerEmail: buyer?.email || '',
+                    projectDescription: '',
+                    budget: '',
+                    deadline: '',
+                  });
                   onNavigate('discover');
                 }}
                 className="btn-outline"

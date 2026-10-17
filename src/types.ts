@@ -34,6 +34,7 @@ export type Commission = {
   id: string;
   artistId: string;
   artistName: string;
+  buyerId?: string;
   buyerName: string;
   buyerEmail: string;
   projectDescription: string;
@@ -51,12 +52,25 @@ export type PurchaseEnquiry = {
   artworkTitle: string;
   artistId: string;
   artistName: string;
+  buyerId?: string;
   buyerName: string;
   buyerEmail: string;
   message: string;
   offerPrice: number;
   status: EnquiryStatus;
   createdAt: string;
+};
+
+export type BuyerProfile = {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  phone?: string;
+  location?: string;
+  savedArtworkIds: string[];
+  createdAt: string;
+  password?: string;
 };
 
 export type CreatorProfile = {
@@ -71,6 +85,7 @@ export type CreatorProfile = {
   university: string;
   startingPrice: number;
   createdAt: string;
+  password?: string;
 };
 
 export type ArtworkStatus = 'draft' | 'published';

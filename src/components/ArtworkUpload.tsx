@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Check, AlertCircle, Upload, Image as ImageIcon, Save, Send } from 'lucide-react';
 import type { Page } from './Nav';
-import type { Category, CreatorArtwork, CreatorProfile, ArtworkStatus } from '../types';
+import type { Category, CreatorArtwork, ArtworkStatus } from '../types';
 import { useCreatorArtworks } from '../useCreator';
 import { useCreatorSession } from '../useCreator';
 import { saveImage, deleteImage } from '../imageStore';
@@ -9,6 +9,7 @@ import { inr } from '../format';
 
 type UploadProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
+  onOpenAuth?: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
   editId?: string;
 };
 
@@ -40,7 +41,7 @@ function genImageKey(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export default function ArtworkUpload({ onNavigate, editId }: UploadProps) {
+export default function ArtworkUpload({ onNavigate, onOpenAuth, editId }: UploadProps) {
   const { creator } = useCreatorSession();
   const { artworks, addArtwork, updateArtwork, deleteArtwork } = useCreatorArtworks();
   const [formData, setFormData] = useState<FormData>(initialData);
@@ -76,7 +77,10 @@ export default function ArtworkUpload({ onNavigate, editId }: UploadProps) {
       <div className="pt-40 min-h-screen flex flex-col items-center justify-center">
         <p className="font-display text-4xl text-ink mb-4">Become a creator first.</p>
         <p className="text-muted mb-8">You need a creator profile to upload artwork.</p>
-        <button onClick={() => onNavigate('join')} className="btn-coral">
+        <button
+          onClick={() => (onOpenAuth ? onOpenAuth('creator', 'signup') : onNavigate('dashboard'))}
+          className="btn-coral"
+        >
           Set up creator profile
         </button>
       </div>
