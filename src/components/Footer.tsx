@@ -1,7 +1,8 @@
 import ArtLoopLogo from './ArtLoopLogo';
+import type { Page } from './Nav';
 
 type FooterProps = {
-  onNavigate: (page: 'home' | 'discover' | 'dashboard') => void;
+  onNavigate: (page: Page) => void;
 };
 
 export default function Footer({ onNavigate }: FooterProps) {
@@ -27,7 +28,7 @@ export default function Footer({ onNavigate }: FooterProps) {
                 </button>
               </li>
               <li>
-                <button onClick={() => onNavigate('discover')} className="link-underline text-canvas/90 hover:text-coral transition-colors">
+                <button onClick={() => onNavigate('artists')} className="link-underline text-canvas/90 hover:text-coral transition-colors">
                   Browse artists
                 </button>
               </li>

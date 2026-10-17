@@ -321,6 +321,13 @@ export default function Discover({ onNavigate, onEnquire, onSelectArtwork }: Dis
                 The artists behind the work.
               </h2>
             </div>
+            <button
+              onClick={() => onNavigate('artists')}
+              className="flex items-center gap-2 text-sm font-semibold text-ink hover:text-coral transition-colors group"
+            >
+              Browse all artists
+              <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </button>
           </div>
 
           {/* Creator spotlight */}

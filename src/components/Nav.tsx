@@ -3,7 +3,7 @@ import { ArrowUpRight, LogOut, LogIn } from 'lucide-react';
 import ArtLoopLogo from './ArtLoopLogo';
 import { useAuth } from '../useAuth';
 
-export type Page = 'home' | 'discover' | 'artist' | 'commission' | 'dashboard' | 'join' | 'upload' | 'enquiry';
+export type Page = 'home' | 'discover' | 'artists' | 'artist' | 'commission' | 'dashboard' | 'join' | 'upload' | 'enquiry';
 
 type NavProps = {
   current: Page;
@@ -24,7 +24,7 @@ export default function Nav({ current, onNavigate, onOpenAuth }: NavProps) {
 
   const links: { label: string; page: Page }[] = [
     { label: 'Discover', page: 'discover' },
-    { label: 'Artists', page: 'discover' },
+    { label: 'Artists', page: 'artists' },
     { label: 'Dashboard', page: 'dashboard' },
   ];
 
@@ -142,7 +142,9 @@ export default function Nav({ current, onNavigate, onOpenAuth }: NavProps) {
             <button
               key={link.label}
               onClick={() => handleNav(link.page)}
-              className="font-display text-3xl font-bold text-ink hover:text-coral transition-colors"
+              className={`font-display text-3xl font-bold transition-colors ${
+                current === link.page ? 'text-coral' : 'text-ink hover:text-coral'
+              }`}
             >
               {link.label}
             </button>

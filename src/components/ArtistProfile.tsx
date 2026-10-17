@@ -3,7 +3,8 @@ import { ArrowLeft, MapPin, GraduationCap, IndianRupee, ArrowUpRight, Heart } fr
 import ArtworkImage from './ArtworkImage';
 import type { Page } from './Nav';
 import type { Artwork } from '../types';
-import { getArtist, getArtworksByArtist } from '../data';
+import { getArtist } from '../data';
+import { useMarketplace } from '../useMarketplace';
 import { useAuth } from '../useAuth';
 import { useOrders } from '../useOrders';
 import { inr } from '../format';
@@ -17,8 +18,9 @@ type ArtistProfileProps = {
 export default function ArtistProfile({ artistSlug, onNavigate, onSelectArtwork }: ArtistProfileProps) {
   const { toggleSaveArtwork, isArtworkSaved } = useAuth();
   const { isArtworkSold } = useOrders();
+  const { allArtists, allArtworks } = useMarketplace();
   const [visibleBio, setVisibleBio] = useState(false);
-  const artist = getArtist(artistSlug);
+  const artist = allArtists.find((a) => a.slug === artistSlug || a.id === artistSlug) ?? getArtist(artistSlug);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -32,28 +34,45 @@ export default function ArtistProfile({ artistSlug, onNavigate, onSelectArtwork 
 
   if (!artist) {
     return (
-      <div className="pt-40 min-h-screen flex flex-col items-center justify-center">
+      <div className="pt-40 min-h-screen flex flex-col items-center justify-center text-center px-6">
         <p className="font-display text-4xl text-ink mb-4">Artist not found.</p>
-        <button onClick={() => onNavigate('discover')} className="btn-outline">
-          Back to Discover
-        </button>
+        <p className="text-muted mb-8">This creator profile may have been removed or does not exist.</p>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <button onClick={() => onNavigate('artists')} className="btn-coral">
+            Browse Artists
+          </button>
+          <button onClick={() => onNavigate('discover')} className="btn-outline">
+            Discover Artworks
+          </button>
+        </div>
       </div>
     );
   }
 
-  const portfolioWorks = getArtworksByArtist(artist.id);
+  const portfolioWorks = allArtworks.filter((w) => w.artistId === artist.id);
 
   return (
     <div className="pt-28 md:pt-36 min-h-screen">
       <div className="max-w-[1600px] mx-auto px-6 md:px-12">
-        {/* Back link */}
-        <button
-          onClick={() => onNavigate('discover')}
-          className="flex items-center gap-2 text-sm text-muted hover:text-coral transition-colors mb-12 group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Discover
-        </button>
+        {/* Back navigation */}
+        <div className="flex items-center gap-3 mb-12 text-sm">
+          <button
+            onClick={() => onNavigate('artists')}
+            className="flex items-center gap-1.5 text-muted hover:text-coral transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+            Artists
+          </button>
+          <span className="text-muted/40">/</span>
+          <button
+            onClick={() => onNavigate('discover')}
+            className="text-muted hover:text-coral transition-colors"
+          >
+            Discover
+          </button>
+          <span className="text-muted/40">/</span>
+          <span className="text-ink font-medium truncate">{artist.name}</span>
+        </div>
 
         {/* Hero section — asymmetrical */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 mb-20 md:mb-28">

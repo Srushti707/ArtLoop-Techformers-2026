@@ -3,6 +3,7 @@ import Nav, { type Page } from './components/Nav';
 import Footer from './components/Footer';
 import Home from './components/Home';
 import Discover from './components/Discover';
+import ArtistsDirectory from './components/ArtistsDirectory';
 import ArtistProfile from './components/ArtistProfile';
 import CommissionForm from './components/CommissionForm';
 import Dashboard from './components/Dashboard';
@@ -28,6 +29,7 @@ function parseHash(): {
 
   if (parts.length === 0) return { page: 'home' };
   if (parts[0] === 'discover') return { page: 'discover' };
+  if (parts[0] === 'artists') return { page: 'artists' };
   if (parts[0] === 'dashboard') return { page: 'dashboard' };
   if (parts[0] === 'login') return { page: 'dashboard', isLogin: true };
   if (parts[0] === 'join') return { page: 'dashboard', openCreatorSignup: true };
@@ -133,6 +135,9 @@ export default function App() {
             onEnquire={openEnquiry}
             onSelectArtwork={handleSelectArtwork}
           />
+        )}
+        {state.page === 'artists' && (
+          <ArtistsDirectory onNavigate={navigate} />
         )}
         {state.page === 'artist' && state.artistSlug && (
           <ArtistProfile

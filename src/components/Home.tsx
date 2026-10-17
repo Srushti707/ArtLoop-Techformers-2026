@@ -188,7 +188,7 @@ export default function Home({ onNavigate, onOpenAuth, onSelectArtwork }: HomePr
               <span className="editorial-label mb-4 block">Featured emerging creators</span>
               <h2 className="font-display font-bold text-ink text-display-3">Meet the artists<br />shaping what comes next.</h2>
             </div>
-            <button onClick={() => onNavigate('discover')} className="flex items-center gap-2 text-sm font-semibold text-ink hover:text-coral transition-colors group">
+            <button onClick={() => onNavigate('artists')} className="flex items-center gap-2 text-sm font-semibold text-ink hover:text-coral transition-colors group">
               See all artists
               <ArrowUpRight className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </button>
