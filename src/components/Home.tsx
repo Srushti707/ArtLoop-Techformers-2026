@@ -4,12 +4,14 @@ import { ArrowDown, ArrowUpRight } from 'lucide-react';
 import ArtworkImage from './ArtworkImage';
 import ArtLoopLogo from './ArtLoopLogo';
 import type { Page } from './Nav';
+import type { Artwork } from '../types';
 import { artists, artworks, getArtistName } from '../data';
 import { inr } from '../format';
 
 type HomeProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
   onOpenAuth?: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
+  onSelectArtwork?: (artwork: Artwork) => void;
 };
 
 type HeroCard = {
@@ -26,7 +28,7 @@ const heroCards: HeroCard[] = [
   { artworkIndex: 12, rotate: 4, depth: 4, position: 'hero-card-front' },
 ];
 
-export default function Home({ onNavigate, onOpenAuth }: HomeProps) {
+export default function Home({ onNavigate, onOpenAuth, onSelectArtwork }: HomeProps) {
   const [mounted, setMounted] = useState(false);
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
@@ -225,7 +227,17 @@ export default function Home({ onNavigate, onOpenAuth }: HomeProps) {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
             {spotlightArtworks.map((art) => (
-              <button key={art.id} onClick={() => onNavigate('artist', artists.find((a) => a.id === art.artistId)?.slug)} className="text-left group">
+              <button
+                key={art.id}
+                onClick={() => {
+                  if (onSelectArtwork) {
+                    onSelectArtwork(art);
+                  } else {
+                    onNavigate('artist', artists.find((a) => a.id === art.artistId)?.slug);
+                  }
+                }}
+                className="text-left group"
+              >
                 <div className={`image-zoom relative border border-canvas/15 ${art.aspect === 'portrait' ? 'aspect-[3/4]' : art.aspect === 'square' ? 'aspect-square' : 'aspect-[4/3]'}`}>
                   <ArtworkImage src={art.image} alt={art.title} className="w-full h-full" imgClassName="group-hover:scale-105" />
                 </div>

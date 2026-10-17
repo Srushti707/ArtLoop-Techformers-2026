@@ -1,20 +1,25 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Clock, CheckCircle2, XCircle, Loader2, Mail, Bookmark, ArrowUpRight, Trash2, LogOut } from 'lucide-react';
+import {
+  Clock, CheckCircle2, XCircle, Loader2, Mail, Bookmark,
+  ArrowUpRight, Trash2, LogOut, ShoppingBag, Download, FileText,
+} from 'lucide-react';
 import type { Page } from './Nav';
 import type { CommissionStatus, EnquiryStatus, Artwork } from '../types';
 import { useCommissions } from '../useCommissions';
 import { useEnquiries } from '../useCreator';
 import { useAuth } from '../useAuth';
 import { useMarketplace } from '../useMarketplace';
+import { useOrders, downloadCertificate, downloadArtworkDeliverable } from '../useOrders';
 import ArtworkImage from './ArtworkImage';
 import { inr } from '../format';
 
 type BuyerDashboardProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
   onEnquireArtwork: (artwork: Artwork) => void;
+  onSelectArtwork?: (artwork: Artwork) => void;
 };
 
-type Tab = 'commissions' | 'enquiries' | 'saved';
+type Tab = 'orders' | 'commissions' | 'enquiries' | 'saved';
 
 const commissionStatusConfig: Record<
   CommissionStatus,
@@ -48,19 +53,27 @@ function formatDate(iso: string): string {
   }
 }
 
-export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDashboardProps) {
+export default function BuyerDashboard({ onNavigate, onEnquireArtwork, onSelectArtwork }: BuyerDashboardProps) {
   const { buyer, signOut, savedArtworkIds, toggleSaveArtwork } = useAuth();
   const { commissions, deleteCommission } = useCommissions();
   const { enquiries, deleteEnquiry } = useEnquiries();
   const { allArtworks, allArtists } = useMarketplace();
 
-  const [activeTab, setActiveTab] = useState<Tab>('commissions');
+  const { getOrdersByBuyer } = useOrders();
+
+  const [activeTab, setActiveTab] = useState<Tab>('orders');
   const [filterStatus, setFilterStatus] = useState<'all' | CommissionStatus>('all');
   const [expandedCommId, setExpandedCommId] = useState<string | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Filter orders for this buyer
+  const myOrders = useMemo(() => {
+    if (!buyer) return [];
+    return getOrdersByBuyer(buyer.id, buyer.email);
+  }, [getOrdersByBuyer, buyer]);
 
   // Filter commissions for this buyer
   const myCommissions = useMemo(() => {
@@ -107,7 +120,7 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
               Welcome back, {buyer.name.split(' ')[0]}.
             </h1>
             <p className="text-lg text-ink-soft max-w-2xl">
-              Track your commission requests, purchase enquiries, and saved pieces.
+              Track your collected artworks, custom commissions, purchase enquiries, and saved pieces.
             </p>
           </div>
 
@@ -133,13 +146,28 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
           </div>
         </div>
 
-        {/* Simple Tabs */}
+        {/* Tab Navigation */}
         <div className="mb-10 flex flex-wrap gap-2 border-b border-border pb-1">
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all duration-200 border-b-2 -mb-1 ${
+              activeTab === 'orders'
+                ? 'border-coral text-coral font-bold'
+                : 'border-transparent text-muted hover:text-ink'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            Purchases & Deliverables
+            <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-canvas-dark text-muted font-bold">
+              {myOrders.length}
+            </span>
+          </button>
+
           <button
             onClick={() => setActiveTab('commissions')}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all duration-200 border-b-2 -mb-1 ${
               activeTab === 'commissions'
-                ? 'border-coral text-coral'
+                ? 'border-coral text-coral font-bold'
                 : 'border-transparent text-muted hover:text-ink'
             }`}
           >
@@ -154,7 +182,7 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
             onClick={() => setActiveTab('enquiries')}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all duration-200 border-b-2 -mb-1 ${
               activeTab === 'enquiries'
-                ? 'border-coral text-coral'
+                ? 'border-coral text-coral font-bold'
                 : 'border-transparent text-muted hover:text-ink'
             }`}
           >
@@ -169,7 +197,7 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
             onClick={() => setActiveTab('saved')}
             className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all duration-200 border-b-2 -mb-1 ${
               activeTab === 'saved'
-                ? 'border-coral text-coral'
+                ? 'border-coral text-coral font-bold'
                 : 'border-transparent text-muted hover:text-ink'
             }`}
           >
@@ -180,6 +208,101 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
             </span>
           </button>
         </div>
+
+        {/* ─── TAB: PURCHASES & DELIVERABLES ─── */}
+        {activeTab === 'orders' && (
+          <div>
+            <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
+              <div>
+                <h2 className="font-display text-xl font-bold text-ink">
+                  Collected Artworks & Digital Deliverables
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Access your high-resolution original digital files and verifiable certificates of authenticity.
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                {myOrders.length} {myOrders.length === 1 ? 'Acquisition' : 'Acquisitions'}
+              </span>
+            </div>
+
+            {myOrders.length === 0 ? (
+              <div className="py-24 text-center border border-border bg-canvas">
+                <ShoppingBag className="w-12 h-12 text-muted mx-auto mb-4" />
+                <p className="font-display text-2xl text-ink mb-2">No collected artworks yet.</p>
+                <p className="text-sm text-muted mb-6 max-w-md mx-auto">
+                  Browse original works from emerging student artists, verify their digital provenance, and collect pieces with full usage rights.
+                </p>
+                <button onClick={() => onNavigate('discover')} className="btn-coral">
+                  Explore Discover
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myOrders.map((order) => {
+                  return (
+                    <div
+                      key={order.id}
+                      className="border border-border bg-canvas p-6 flex flex-col md:flex-row gap-6 items-start justify-between hover:border-ink/40 transition-colors"
+                    >
+                      <div className="flex gap-4 items-start w-full md:w-auto">
+                        <img
+                          src={order.artworkImage}
+                          alt={order.artworkTitle}
+                          className="w-24 h-24 object-cover border border-border shrink-0 bg-canvas-dark/20"
+                        />
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-coral">
+                              {order.id}
+                            </span>
+                            <span className="text-xs text-muted">·</span>
+                            <span className="text-xs text-muted">{formatDate(order.createdAt)}</span>
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Completed · Active License
+                            </span>
+                          </div>
+                          <h3 className="font-display text-xl font-bold text-ink">
+                            {order.artworkTitle}
+                          </h3>
+                          <p className="text-xs text-muted">
+                            Creator: <strong className="text-ink">{order.artistName}</strong> · {order.category}
+                          </p>
+                          <div className="pt-2 flex flex-wrap items-center gap-3 text-xs">
+                            <span className="font-display text-base font-bold text-ink">
+                              {inr(order.price)}
+                            </span>
+                            <span className="text-muted">·</span>
+                            <span className="text-muted">License: <strong className="text-ink">{order.licenseType}</strong></span>
+                            <span className="text-muted">·</span>
+                            <span className="text-muted">Cert: <code className="font-mono text-ink text-[11px]">{order.certificateId}</code></span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0 md:min-w-[190px]">
+                        <button
+                          onClick={() => downloadArtworkDeliverable(order)}
+                          className="btn-coral text-xs py-2 px-3.5 justify-center flex items-center gap-2"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download Master File
+                        </button>
+                        <button
+                          onClick={() => downloadCertificate(order)}
+                          className="btn-outline text-xs py-2 px-3.5 justify-center flex items-center gap-2"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Download Certificate
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ─── TAB: COMMISSIONS ─── */}
         {activeTab === 'commissions' && (
@@ -432,7 +555,13 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
                   return (
                     <div key={art.id} className="border border-border bg-canvas group hover-lift transition-all">
                       <div className="relative aspect-[4/5] overflow-hidden">
-                        <ArtworkImage src={art.image} alt={art.title} className="w-full h-full" />
+                        <button
+                          onClick={() => onSelectArtwork ? onSelectArtwork(art) : onNavigate('discover')}
+                          className="w-full h-full block text-left focus:outline-none"
+                          title="View artwork details"
+                        >
+                          <ArtworkImage src={art.image} alt={art.title} className="w-full h-full" />
+                        </button>
                         <button
                           onClick={() => toggleSaveArtwork(art.id)}
                           className="absolute top-3 right-3 p-2 bg-canvas/90 hover:bg-canvas rounded-full text-coral transition-all"
@@ -446,7 +575,12 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
                       </div>
 
                       <div className="p-5">
-                        <h3 className="font-display text-lg font-bold text-ink truncate">{art.title}</h3>
+                        <button
+                          onClick={() => onSelectArtwork ? onSelectArtwork(art) : onNavigate('discover')}
+                          className="text-left block w-full group/title"
+                        >
+                          <h3 className="font-display text-lg font-bold text-ink truncate group-hover/title:text-coral transition-colors">{art.title}</h3>
+                        </button>
                         <p className="text-sm text-muted mt-0.5">
                           {artist ? (
                             <button
@@ -461,13 +595,23 @@ export default function BuyerDashboard({ onNavigate, onEnquireArtwork }: BuyerDa
                         </p>
                         <div className="mt-4 pt-3 border-t border-border-soft flex items-center justify-between">
                           <span className="font-display text-base font-bold text-ink">{inr(art.price)}</span>
-                          <button
-                            onClick={() => onEnquireArtwork(art)}
-                            className="btn-coral text-xs py-2 px-3 flex items-center gap-1"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                            Enquire
-                          </button>
+                          <div className="flex items-center gap-1.5">
+                            {onSelectArtwork && (
+                              <button
+                                onClick={() => onSelectArtwork(art)}
+                                className="border border-border px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-canvas-dark transition-colors"
+                              >
+                                View
+                              </button>
+                            )}
+                            <button
+                              onClick={() => onEnquireArtwork(art)}
+                              className="btn-coral text-xs py-1.5 px-3 flex items-center gap-1"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              Enquire
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

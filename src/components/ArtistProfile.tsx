@@ -2,17 +2,21 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, MapPin, GraduationCap, IndianRupee, ArrowUpRight, Heart } from 'lucide-react';
 import ArtworkImage from './ArtworkImage';
 import type { Page } from './Nav';
+import type { Artwork } from '../types';
 import { getArtist, getArtworksByArtist } from '../data';
 import { useAuth } from '../useAuth';
+import { useOrders } from '../useOrders';
 import { inr } from '../format';
 
 type ArtistProfileProps = {
   artistSlug: string;
   onNavigate: (page: Page, artistSlug?: string) => void;
+  onSelectArtwork?: (artwork: Artwork) => void;
 };
 
-export default function ArtistProfile({ artistSlug, onNavigate }: ArtistProfileProps) {
+export default function ArtistProfile({ artistSlug, onNavigate, onSelectArtwork }: ArtistProfileProps) {
   const { toggleSaveArtwork, isArtworkSaved } = useAuth();
+  const { isArtworkSold } = useOrders();
   const [visibleBio, setVisibleBio] = useState(false);
   const artist = getArtist(artistSlug);
 
@@ -127,47 +131,86 @@ export default function ArtistProfile({ artistSlug, onNavigate }: ArtistProfileP
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6 md:gap-10">
-            {portfolioWorks.map((work, i) => (
-              <div
-                key={work.id}
-                className={`group ${i % 3 === 0 ? 'lg:mt-0' : i % 3 === 1 ? 'lg:mt-16' : 'lg:mt-8'}`}
-              >
-                <div className={`image-zoom relative border border-border ${
-                  work.aspect === 'portrait' ? 'aspect-[3/4]' : work.aspect === 'square' ? 'aspect-square' : 'aspect-[4/3]'
-                }`}>
-                  <ArtworkImage
-                    src={work.image}
-                    alt={work.title}
-                    className="w-full h-full"
-                    imgClassName="group-hover:scale-105"
-                  />
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleSaveArtwork(work.id);
-                    }}
-                    className="absolute top-3 right-3 p-2 bg-canvas/90 hover:bg-canvas rounded-full text-ink transition-all z-10 shadow-sm"
-                    title={isArtworkSaved(work.id) ? 'Saved in Wishlist' : 'Save to Wishlist'}
-                    aria-label="Save to Wishlist"
-                  >
-                    <Heart
-                      className={`w-4 h-4 transition-colors ${
-                        isArtworkSaved(work.id) ? 'fill-coral text-coral' : 'text-ink hover:text-coral'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="mt-4 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-display text-xl font-medium text-ink group-hover:text-coral transition-colors">
-                      {work.title}
-                    </p>
-                    <p className="text-sm text-muted mt-1">{work.category}</p>
+            {portfolioWorks.map((work, i) => {
+              const sold = isArtworkSold(work.id);
+              return (
+                <div
+                  key={work.id}
+                  className={`group text-left ${i % 3 === 0 ? 'lg:mt-0' : i % 3 === 1 ? 'lg:mt-16' : 'lg:mt-8'}`}
+                >
+                  <div className={`image-zoom relative border border-border ${
+                    work.aspect === 'portrait' ? 'aspect-[3/4]' : work.aspect === 'square' ? 'aspect-square' : 'aspect-[4/3]'
+                  }`}>
+                    <button
+                      onClick={() => onSelectArtwork && onSelectArtwork(work)}
+                      className="w-full h-full block text-left focus:outline-none"
+                      title="View artwork details & purchase rights"
+                    >
+                      <ArtworkImage
+                        src={work.image}
+                        alt={work.title}
+                        className="w-full h-full"
+                        imgClassName="group-hover:scale-105"
+                      />
+                    </button>
+
+                    {sold && (
+                      <div className="absolute bottom-3 left-3 bg-ink/95 text-canvas px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider shadow">
+                        Collected (1 of 1)
+                      </div>
+                    )}
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSaveArtwork(work.id);
+                      }}
+                      className="absolute top-3 right-3 p-2 bg-canvas/90 hover:bg-canvas rounded-full text-ink transition-all z-10 shadow-sm"
+                      title={isArtworkSaved(work.id) ? 'Saved in Wishlist' : 'Save to Wishlist'}
+                      aria-label="Save to Wishlist"
+                    >
+                      <Heart
+                        className={`w-4 h-4 transition-colors ${
+                          isArtworkSaved(work.id) ? 'fill-coral text-coral' : 'text-ink hover:text-coral'
+                        }`}
+                      />
+                    </button>
+
+                    {/* View Details hover button */}
+                    {onSelectArtwork && (
+                      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectArtwork(work);
+                          }}
+                          className="bg-ink text-canvas hover:bg-coral px-3 py-1.5 text-xs font-semibold shadow transition-colors"
+                        >
+                          View Details & Rights
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <span className="font-display text-lg text-ink whitespace-nowrap">{inr(work.price)}</span>
+                  <div className="mt-4 flex items-start justify-between gap-4">
+                    <button
+                      onClick={() => onSelectArtwork && onSelectArtwork(work)}
+                      className="text-left group/title flex-1 min-w-0"
+                    >
+                      <p className="font-display text-xl font-medium text-ink group-hover/title:text-coral transition-colors truncate">
+                        {work.title}
+                      </p>
+                      <p className="text-sm text-muted mt-1">{work.category}</p>
+                    </button>
+                    <div className="text-right flex-shrink-0">
+                      <span className="font-display text-lg text-ink whitespace-nowrap">{inr(work.price)}</span>
+                      {sold && (
+                        <span className="block text-[11px] font-semibold text-coral uppercase tracking-wide">Sold</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

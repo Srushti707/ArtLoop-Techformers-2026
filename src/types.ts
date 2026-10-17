@@ -103,3 +103,26 @@ export type CreatorArtwork = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type LicenseType = 'Personal Display' | 'Commercial Use';
+
+export type Order = {
+  id: string;
+  artworkId: string;
+  artworkTitle: string;
+  artworkImage: string;
+  category: Category;
+  aspect: 'portrait' | 'landscape' | 'square';
+  artistId: string;
+  artistName: string;
+  buyerId?: string;
+  buyerName: string;
+  buyerEmail: string;
+  price: number;
+  licenseType: LicenseType;
+  digitalDeliverableUrl: string;
+  certificateId: string;
+  status: 'completed' | 'processing';
+  createdAt: string;
+  isDemo: boolean;
+};

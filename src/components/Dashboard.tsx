@@ -2,13 +2,14 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Trash2, ArrowUpRight, Inbox, Clock, CheckCircle2, XCircle, Loader2,
   Plus, Edit3, Mail, Image as ImageIcon, LogOut,
-  LayoutGrid, User, Palette, MessageSquare, Upload,
+  LayoutGrid, User, Palette, MessageSquare, Upload, ShoppingBag,
 } from 'lucide-react';
 import type { Page } from './Nav';
 import type { Commission, CommissionStatus, EnquiryStatus, Artwork } from '../types';
 import { useCommissions } from '../useCommissions';
 import { useEnquiries, useCreatorArtworks, useCreatorProfiles } from '../useCreator';
 import { useAuth } from '../useAuth';
+import { useOrders } from '../useOrders';
 import BuyerDashboard from './BuyerDashboard';
 import { getImageURL } from '../imageStore';
 import { fileToAvatarDataUrl } from '../avatarUtils';
@@ -18,10 +19,11 @@ type DashboardProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
   onEditArtwork: (id: string) => void;
   onEnquireArtwork?: (artwork: Artwork) => void;
+  onSelectArtwork?: (artwork: Artwork) => void;
   onOpenAuth?: (initialRole?: 'buyer' | 'creator', initialMode?: 'signin' | 'signup') => void;
 };
 
-type Tab = 'overview' | 'profile' | 'artworks' | 'requests';
+type Tab = 'overview' | 'orders' | 'profile' | 'artworks' | 'requests';
 
 const statusConfig: Record<CommissionStatus, { label: string; color: string; bg: string; border: string; icon: typeof Clock }> = {
   pending: { label: 'Pending', color: 'text-amber-700', bg: 'bg-amber-50', border: 'border-amber-200', icon: Clock },
@@ -49,6 +51,7 @@ export default function Dashboard({
   onNavigate,
   onEditArtwork,
   onEnquireArtwork,
+  onSelectArtwork,
   onOpenAuth,
 }: DashboardProps) {
   const { role, buyer, creator, signOut } = useAuth();
@@ -102,6 +105,13 @@ export default function Dashboard({
     [creatorArtworks, creator],
   );
 
+  const { getSalesStatsForArtist, isArtworkSold } = useOrders();
+
+  const { salesCount, totalEarnings, artistOrders } = useMemo(() => {
+    if (!creator) return { salesCount: 0, totalEarnings: 0, artistOrders: [] };
+    return getSalesStatsForArtist(creator.id);
+  }, [creator, getSalesStatsForArtist]);
+
   const stats = useMemo(() => {
     const totalReqs = myCommissions.length + myEnquiries.length;
     const pending = myCommissions.filter((c) => c.status === 'pending').length + myEnquiries.filter((e) => e.status === 'new').length;
@@ -119,6 +129,7 @@ export default function Dashboard({
       <BuyerDashboard
         onNavigate={onNavigate}
         onEnquireArtwork={onEnquireArtwork || (() => onNavigate('discover'))}
+        onSelectArtwork={onSelectArtwork}
       />
     );
   }
@@ -205,11 +216,12 @@ export default function Dashboard({
   }
 
   // 3. If logged-in user is a Student Creator, render existing Creator Dashboard
-  const tabs: { id: Tab; label: string; icon: typeof LayoutGrid }[] = [
+  const tabs: { id: Tab; label: string; icon: typeof LayoutGrid; count?: number }[] = [
     { id: 'overview', label: 'Overview', icon: LayoutGrid },
+    { id: 'orders', label: 'Orders & Sales', icon: ShoppingBag, count: salesCount },
     { id: 'profile', label: 'My Profile', icon: User },
-    { id: 'artworks', label: 'My Artwork', icon: Palette },
-    { id: 'requests', label: 'Requests', icon: MessageSquare },
+    { id: 'artworks', label: 'My Artwork', icon: Palette, count: myArtworks.length },
+    { id: 'requests', label: 'Requests', icon: MessageSquare, count: stats.pending },
   ];
 
   const handleSignOut = () => {
@@ -228,7 +240,7 @@ export default function Dashboard({
               Welcome back, {creator.name.split(' ')[0]}.
             </h1>
             <p className="text-lg text-ink-soft max-w-2xl">
-              Manage your profile, artwork, and incoming requests — all in one place.
+              Manage your profile, artwork, orders, and incoming client requests — all in one place.
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -256,12 +268,17 @@ export default function Dashboard({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all duration-300 border-b-2 -mb-1 ${
                   activeTab === tab.id
-                    ? 'border-coral text-coral'
+                    ? 'border-coral text-coral font-bold'
                     : 'border-transparent text-muted hover:text-ink'
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}
+                {tab.count !== undefined && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-canvas-dark text-muted font-bold">
+                    {tab.count}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -274,9 +291,9 @@ export default function Dashboard({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-px border border-border bg-border">
               {[
                 { label: 'Published works', value: stats.publishedCount, accent: false },
-                { label: 'Drafts', value: stats.draftCount, accent: false },
+                { label: 'Artwork sales', value: `${salesCount} ${salesCount === 1 ? 'order' : 'orders'}`, accent: false },
                 { label: 'Total enquiries', value: stats.totalReqs, accent: false },
-                { label: 'Portfolio value', value: inr(stats.totalValue), accent: true },
+                { label: 'Sales earnings', value: inr(totalEarnings), accent: true },
               ].map((stat) => (
                 <div key={stat.label} className="bg-canvas p-6">
                   <p className="editorial-label mb-3">{stat.label}</p>
@@ -295,15 +312,17 @@ export default function Dashboard({
               >
                 <Plus className="w-6 h-6 text-coral mb-4" />
                 <p className="font-display text-lg font-semibold text-ink group-hover:text-coral transition-colors">Upload new artwork</p>
-                <p className="text-sm text-muted mt-2">Share a piece with the marketplace.</p>
+                <p className="text-sm text-muted mt-2">Share an original piece with the marketplace.</p>
               </button>
               <button
-                onClick={() => setActiveTab('profile')}
+                onClick={() => setActiveTab('orders')}
                 className="border border-border p-8 text-left hover:border-ink transition-colors group"
               >
-                <Edit3 className="w-6 h-6 text-coral mb-4" />
-                <p className="font-display text-lg font-semibold text-ink group-hover:text-coral transition-colors">Edit your profile</p>
-                <p className="text-sm text-muted mt-2">Update your bio, location, or pricing.</p>
+                <ShoppingBag className="w-6 h-6 text-coral mb-4" />
+                <p className="font-display text-lg font-semibold text-ink group-hover:text-coral transition-colors">
+                  {salesCount > 0 ? `${salesCount} sales recorded` : 'View sales & orders'}
+                </p>
+                <p className="text-sm text-muted mt-2">Review collector orders and licensing records.</p>
               </button>
               <button
                 onClick={() => setActiveTab('requests')}
@@ -316,6 +335,37 @@ export default function Dashboard({
                 <p className="text-sm text-muted mt-2">Review commissions and purchase enquiries.</p>
               </button>
             </div>
+
+            {/* Recent sales preview */}
+            {artistOrders.length > 0 && (
+              <div>
+                <div className="flex items-end justify-between mb-6">
+                  <h2 className="font-display text-xl font-semibold text-ink">Recent collector sales</h2>
+                  <button onClick={() => setActiveTab('orders')} className="text-sm text-muted hover:text-coral transition-colors flex items-center gap-1">
+                    See all sales <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {artistOrders.slice(0, 3).map((order) => (
+                    <div key={order.id} className="border border-border p-4 bg-canvas flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <img src={order.artworkImage} alt={order.artworkTitle} className="w-12 h-12 object-cover border border-border shrink-0 bg-canvas-dark/20" />
+                        <div>
+                          <p className="font-display text-base font-bold text-ink">{order.artworkTitle}</p>
+                          <p className="text-xs text-muted">Collector: {order.buyerName} · {formatDate(order.createdAt)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-display text-base font-bold text-ink">{inr(order.price)}</p>
+                        <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded inline-block mt-0.5">
+                          Paid
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Recent artworks preview */}
             {myArtworks.length > 0 && (
@@ -348,6 +398,89 @@ export default function Dashboard({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── Orders & Sales Tab ─── */}
+        {activeTab === 'orders' && (
+          <div className="space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
+              <div>
+                <h2 className="font-display text-xl font-bold text-ink">
+                  Incoming Orders & Digital Sales
+                </h2>
+                <p className="text-xs text-muted mt-0.5">
+                  Verified orders placed by collectors for your published original digital artworks.
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs font-semibold px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {salesCount} {salesCount === 1 ? 'Sale Recorded' : 'Sales Recorded'}
+                </span>
+                <span className="text-xs font-semibold px-3 py-1 bg-canvas-dark text-ink border border-border">
+                  Total Earnings: {inr(totalEarnings)}
+                </span>
+              </div>
+            </div>
+
+            {artistOrders.length === 0 ? (
+              <div className="py-24 text-center border border-border bg-canvas">
+                <ShoppingBag className="w-12 h-12 text-muted mx-auto mb-4" />
+                <p className="font-display text-2xl text-ink mb-2">No artwork sales recorded yet.</p>
+                <p className="text-sm text-muted mb-6 max-w-md mx-auto">
+                  When collectors purchase your published original works on Discover, their orders, licensing grant, and deliverable access will be recorded here.
+                </p>
+                <button onClick={() => onNavigate('upload')} className="btn-coral">
+                  Upload More Artwork
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {artistOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="border border-border bg-canvas p-6 flex flex-col md:flex-row gap-6 items-start justify-between hover:border-ink/40 transition-colors"
+                  >
+                    <div className="flex gap-4 items-start">
+                      <img
+                        src={order.artworkImage}
+                        alt={order.artworkTitle}
+                        className="w-20 h-20 object-cover border border-border shrink-0 bg-canvas-dark/20"
+                      />
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-coral">{order.id}</span>
+                          <span className="text-xs text-muted">·</span>
+                          <span className="text-xs text-muted">{formatDate(order.createdAt)}</span>
+                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            Fulfilled · Digital Deliverable Issued
+                          </span>
+                        </div>
+                        <h3 className="font-display text-lg font-bold text-ink">
+                          {order.artworkTitle}
+                        </h3>
+                        <p className="text-xs text-muted">
+                          Collector: <strong className="text-ink">{order.buyerName}</strong> ({order.buyerEmail})
+                        </p>
+                        <div className="pt-1 flex flex-wrap items-center gap-3 text-xs">
+                          <span className="font-display text-base font-bold text-ink">{inr(order.price)}</span>
+                          <span className="text-muted">·</span>
+                          <span className="text-muted">License: <strong className="text-ink">{order.licenseType}</strong></span>
+                          <span className="text-muted">·</span>
+                          <span className="text-muted">Certificate: <code className="font-mono text-[11px] text-ink">{order.certificateId}</code></span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded inline-block">
+                        100% Creator Payout
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -403,6 +536,11 @@ export default function Dashboard({
                       }`}>
                         {art.status === 'published' ? 'Published' : 'Draft'}
                       </div>
+                      {isArtworkSold(art.id) && (
+                        <div className="absolute top-3 right-3 px-2.5 py-1 text-xs font-bold bg-ink text-canvas border border-canvas/20 shadow">
+                          Sold (1 of 1)
+                        </div>
+                      )}
                     </div>
                     <div className="p-5">
                       <p className="font-display text-lg font-medium text-ink">{art.title}</p>

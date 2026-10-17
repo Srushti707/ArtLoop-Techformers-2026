@@ -6,19 +6,23 @@ import type { Artwork, Artist } from '../types';
 import { categories, budgetRanges } from '../data';
 import { useMarketplace } from '../useMarketplace';
 import { useAuth } from '../useAuth';
+import { useOrders } from '../useOrders';
 import { inr } from '../format';
 
 type DiscoverProps = {
   onNavigate: (page: Page, artistSlug?: string) => void;
   onEnquire: (artwork: Artwork) => void;
+  onSelectArtwork?: (artwork: Artwork) => void;
 };
 
-export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
+export default function Discover({ onNavigate, onEnquire, onSelectArtwork }: DiscoverProps) {
   const { allArtworks, allArtists } = useMarketplace();
   const { toggleSaveArtwork, isArtworkSaved } = useAuth();
+  const { isArtworkSold } = useOrders();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<typeof categories[number]>('All');
   const [activeBudget, setActiveBudget] = useState(0);
+  const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'title-asc'>('featured');
   const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
@@ -35,7 +39,7 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
 
   const filteredArtworks = useMemo(() => {
     const budget = budgetRanges[activeBudget];
-    return allArtworks.filter((art) => {
+    const base = allArtworks.filter((art) => {
       const matchesSearch =
         search === '' ||
         art.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -45,7 +49,18 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
       const matchesBudget = art.price >= budget.min && art.price <= budget.max;
       return matchesSearch && matchesCategory && matchesBudget;
     });
-  }, [allArtworks, getArtistName, search, activeCategory, activeBudget]);
+
+    if (sortBy === 'price-asc') {
+      return [...base].sort((a, b) => a.price - b.price);
+    }
+    if (sortBy === 'price-desc') {
+      return [...base].sort((a, b) => b.price - a.price);
+    }
+    if (sortBy === 'title-asc') {
+      return [...base].sort((a, b) => a.title.localeCompare(b.title));
+    }
+    return base;
+  }, [allArtworks, getArtistName, search, activeCategory, activeBudget, sortBy]);
 
   const visibleArtworks = filteredArtworks.slice(0, visibleCount);
   const hasMore = visibleCount < filteredArtworks.length;
@@ -131,12 +146,29 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
           </div>
         </div>
 
-        {/* Results count */}
-        <div className="mb-8 flex items-center justify-between">
+        {/* Results count & Sort */}
+        <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-sm text-muted">
             Showing <span className="text-ink font-semibold">{visibleArtworks.length}</span>
             {hasMore && ` of ${filteredArtworks.length}`} result{filteredArtworks.length !== 1 ? 's' : ''}
           </p>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="discover-sort" className="text-xs font-semibold uppercase tracking-wider text-muted">
+              Sort by:
+            </label>
+            <select
+              id="discover-sort"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'featured' | 'price-asc' | 'price-desc' | 'title-asc')}
+              className="bg-canvas border border-border px-3 py-1.5 text-xs font-medium text-ink focus:outline-none focus:border-ink rounded-none cursor-pointer"
+            >
+              <option value="featured">Featured / Curated</option>
+              <option value="price-asc">Price: Low to High</option>
+              <option value="price-desc">Price: High to Low</option>
+              <option value="title-asc">Title: A to Z</option>
+            </select>
+          </div>
         </div>
 
         {/* Editorial grid */}
@@ -145,7 +177,7 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
             <p className="font-display text-3xl text-ink mb-4">No artworks found.</p>
             <p className="text-muted mb-8">Try adjusting your search or filters.</p>
             <button
-              onClick={() => { setSearch(''); setActiveCategory('All'); setActiveBudget(0); }}
+              onClick={() => { setSearch(''); setActiveCategory('All'); setActiveBudget(0); setSortBy('featured'); }}
               className="btn-outline"
             >
               Clear all filters
@@ -155,12 +187,20 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
             {visibleArtworks.map((art, i) => {
               const artist = getArtistForArtwork(art);
+              const sold = isArtworkSold(art.id);
               return (
                 <div key={art.id} className="text-left group hover-lift">
                   <div className={`image-zoom relative border border-border ${aspectForIndex(i)}`}>
                     <button
-                      onClick={() => artist && onNavigate('artist', artist.slug)}
-                      className="w-full h-full block"
+                      onClick={() => {
+                        if (onSelectArtwork) {
+                          onSelectArtwork(art);
+                        } else if (artist) {
+                          onNavigate('artist', artist.slug);
+                        }
+                      }}
+                      className="w-full h-full block text-left focus:outline-none"
+                      title="View artwork details & purchase rights"
                     >
                       <ArtworkImage
                         src={art.image}
@@ -172,6 +212,13 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
                     <div className="absolute top-3 left-3 bg-canvas/90 px-3 py-1 text-xs font-medium text-ink">
                       {art.category}
                     </div>
+
+                    {sold && (
+                      <div className="absolute bottom-3 left-3 bg-ink/95 text-canvas px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider shadow">
+                        Collected (1 of 1)
+                      </div>
+                    )}
+
                     {/* Save to Wishlist button */}
                     <button
                       onClick={(e) => {
@@ -188,23 +235,63 @@ export default function Discover({ onNavigate, onEnquire }: DiscoverProps) {
                         }`}
                       />
                     </button>
-                    {/* Enquire button — appears on hover */}
-                    <button
-                      onClick={() => onEnquire(art)}
-                      className="absolute bottom-3 right-3 bg-ink text-canvas px-3 py-2 text-xs font-semibold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 hover:bg-coral"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      Enquire
-                    </button>
+
+                    {/* Action buttons — appear on hover */}
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onSelectArtwork) onSelectArtwork(art);
+                        }}
+                        className="bg-canvas/95 text-ink hover:bg-canvas px-2.5 py-1.5 text-xs font-semibold shadow border border-border/60"
+                        title="View details & rights"
+                      >
+                        Details
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEnquire(art);
+                        }}
+                        className="bg-ink text-canvas px-2.5 py-1.5 text-xs font-semibold flex items-center gap-1 hover:bg-coral shadow"
+                      >
+                        <Mail className="w-3.5 h-3.5" />
+                        Enquire
+                      </button>
+                    </div>
                   </div>
                   <div className="mt-4 flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-display text-lg font-medium text-ink group-hover:text-coral transition-colors">
-                        {art.title}
-                      </p>
-                      <p className="text-sm text-muted mt-1">{getArtistName(art.artistId)}</p>
+                    <div className="flex-1 min-w-0">
+                      <button
+                        onClick={() => {
+                          if (onSelectArtwork) {
+                            onSelectArtwork(art);
+                          } else if (artist) {
+                            onNavigate('artist', artist.slug);
+                          }
+                        }}
+                        className="text-left block group/title truncate w-full"
+                      >
+                        <p className="font-display text-lg font-medium text-ink group-hover/title:text-coral transition-colors truncate">
+                          {art.title}
+                        </p>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (artist) onNavigate('artist', artist.slug);
+                        }}
+                        className="text-sm text-muted mt-1 hover:text-ink block text-left"
+                      >
+                        {getArtistName(art.artistId)}
+                      </button>
                     </div>
-                    <span className="font-display text-base text-ink whitespace-nowrap">{inr(art.price)}</span>
+                    <div className="text-right flex-shrink-0">
+                      <span className="font-display text-base text-ink whitespace-nowrap">{inr(art.price)}</span>
+                      {sold && (
+                        <span className="block text-[11px] font-semibold text-coral uppercase tracking-wide">Sold</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
