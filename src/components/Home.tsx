@@ -111,40 +111,47 @@ export default function Home({ onNavigate, onOpenAuth, onSelectArtwork }: HomePr
                 style={{ animationDelay: '0.3s' }}
               >
                 <div className="hero-orbit-mark" aria-hidden="true">✦</div>
-                {heroCards.map((card) => {
+                {heroCards.map((card, i) => {
                   const artwork = artworks[card.artworkIndex];
                   const artist = artists.find((item) => item.id === artwork.artistId);
                   const isHovered = hoveredCard === card.artworkIndex;
                   const parallaxX = reducedMotion ? 0 : pointer.x * (card.depth * 2.5);
                   const parallaxY = reducedMotion ? 0 : pointer.y * (card.depth * 1.8);
+                  // Subtle rotation straightening: softens the tilt angle by ~70% on hover
+                  const hoverRotate = card.rotate * 0.3;
                   const transform = isHovered
-                    ? `translate3d(${parallaxX}px, ${parallaxY - 12}px, 0) rotate(0deg) scale(1.035)`
+                    ? `translate3d(${parallaxX}px, ${parallaxY - 9}px, 0) rotate(${hoverRotate}deg) scale(1.028)`
                     : `translate3d(${parallaxX}px, ${parallaxY}px, 0) rotate(${card.rotate}deg)`;
 
                   return (
-                    <button
+                    <div
                       key={artwork.id}
-                      type="button"
-                      className={`hero-art-card ${card.position} ${isHovered ? 'is-hovered' : ''}`}
-                      style={{ transform, zIndex: isHovered ? 30 : 10 + card.depth }}
-                      onClick={() => artist && onNavigate('artist', artist.slug)}
-                      onFocus={() => setHoveredCard(card.artworkIndex)}
-                      onBlur={() => setHoveredCard(null)}
-                      onMouseEnter={() => setHoveredCard(card.artworkIndex)}
-                      onMouseLeave={() => setHoveredCard(null)}
-                      aria-label={`View ${artwork.title} by ${getArtistName(artwork.artistId)}`}
+                      className={`hero-card-slot ${card.position} hero-float-${i + 1} ${isHovered ? 'is-hovered' : ''}`}
+                      style={{ zIndex: isHovered ? 30 : 10 + card.depth }}
                     >
-                      <span className="hero-art-image">
-                        <ArtworkImage src={artwork.image} alt={artwork.title} className="h-full w-full" />
-                      </span>
-                      <span className="hero-art-caption">
-                        <span>
-                          <strong>{artwork.title}</strong>
-                          <small>by {getArtistName(artwork.artistId)}</small>
+                      <button
+                        type="button"
+                        className={`hero-art-card ${isHovered ? 'is-hovered' : ''}`}
+                        style={{ transform }}
+                        onClick={() => artist && onNavigate('artist', artist.slug)}
+                        onFocus={() => setHoveredCard(card.artworkIndex)}
+                        onBlur={() => setHoveredCard(null)}
+                        onMouseEnter={() => setHoveredCard(card.artworkIndex)}
+                        onMouseLeave={() => setHoveredCard(null)}
+                        aria-label={`View ${artwork.title} by ${getArtistName(artwork.artistId)}`}
+                      >
+                        <span className="hero-art-image">
+                          <ArtworkImage src={artwork.image} alt={artwork.title} className="h-full w-full" />
                         </span>
-                        <ArrowUpRight className="h-5 w-5 shrink-0" aria-hidden="true" />
-                      </span>
-                    </button>
+                        <span className="hero-art-caption">
+                          <span>
+                            <strong>{artwork.title}</strong>
+                            <small>by {getArtistName(artwork.artistId)}</small>
+                          </span>
+                          <ArrowUpRight className="h-5 w-5 shrink-0" aria-hidden="true" />
+                        </span>
+                      </button>
+                    </div>
                   );
                 })}
                 <span className="hero-art-note">Fresh eyes<br />welcome here.</span>
